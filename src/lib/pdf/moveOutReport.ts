@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
 import { APP_NAME, DISCLAIMER_TEXT } from '../../config/app';
 import { shortHash } from '../hash';
+import { getPhotoBlob } from '../photoStorage';
 import type { Photo, Property, RoomComparison } from '../../types';
 import {
   BRAND_COLOR,
@@ -211,7 +212,7 @@ async function drawSide(
     return;
   }
 
-  const img = await embedImage(pdfDoc, photo.blob);
+  const img = await embedImage(pdfDoc, await getPhotoBlob(photo));
   const scale = Math.min(w / img.width, h / img.height);
   const iw = img.width * scale;
   const ih = img.height * scale;

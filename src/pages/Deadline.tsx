@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { PageShell } from '../components/PageShell';
 import { Button } from '../components/Button';
 import { Paywall } from '../components/Paywall';
@@ -8,17 +9,17 @@ import { db } from '../db/db';
 import { updateProperty } from '../db/queries';
 import { getActivePropertyId } from '../lib/activeProperty';
 import { useEntitlement } from '../lib/entitlement';
+import { isNative } from '../lib/platform';
 import { getStateRule, STATE_RULES } from '../data/stateRules';
-import { maybeNotifyDeadline } from '../lib/reminders';
+import { maybeNotifyDeadline, scheduleNativeDeadlineReminders } from '../lib/reminders';
 
 export function Deadline() {
   const navigate = useNavigate();
   const propertyId = getActivePropertyId();
   const property = useLiveQuery(() => (propertyId ? db.properties.get(propertyId) : undefined), [propertyId]);
   const unlocked = useEntitlement();
-  const [notifStatus, setNotifStatus] = useState<NotificationPermission | 'unsupported'>(
-    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
-  );
+  const [remindersOn, setRemindersOn] = useState(false);
+  const notifSupported = isNative() || typeof Notification !== 'undefined';
 
   const rule = property ? getStateRule(property.state) : undefined;
 
@@ -27,12 +28,29 @@ export function Deadline() {
       ? addDays(new Date(property.moveOutDate), rule.deadlineDays)
       : undefined;
   const daysLeft = deadlineDate ? daysBetween(new Date(), deadlineDate) : undefined;
+  const label = property?.address ? `the deposit deadline for ${property.address}` : undefined;
 
   useEffect(() => {
-    if (unlocked && propertyId && daysLeft !== undefined && property?.address) {
-      maybeNotifyDeadline(propertyId, daysLeft, `the deposit deadline for ${property.address}`);
+    if (isNative()) {
+      LocalNotifications.checkPermissions().then((p) => setRemindersOn(p.display === 'granted'));
+    } else if (typeof Notification !== 'undefined') {
+      setRemindersOn(Notification.permission === 'granted');
     }
-  }, [unlocked, propertyId, daysLeft, property?.address]);
+  }, []);
+
+  // Web: best-effort check on open, since there's no real scheduled notification.
+  useEffect(() => {
+    if (!isNative() && unlocked && propertyId && daysLeft !== undefined && label) {
+      maybeNotifyDeadline(propertyId, daysLeft, label);
+    }
+  }, [unlocked, propertyId, daysLeft, label]);
+
+  // Native: (re)schedule real OS notifications whenever the deadline is known and reminders are on.
+  useEffect(() => {
+    if (isNative() && remindersOn && propertyId && deadlineDate && label) {
+      scheduleNativeDeadlineReminders(propertyId, deadlineDate, label);
+    }
+  }, [remindersOn, propertyId, deadlineDate, label]);
 
   if (!propertyId) {
     navigate('/');
@@ -44,9 +62,14 @@ export function Deadline() {
   }
 
   async function enableReminders() {
+    if (isNative()) {
+      const perm = await LocalNotifications.requestPermissions();
+      setRemindersOn(perm.display === 'granted');
+      return;
+    }
     if (typeof Notification === 'undefined') return;
     const perm = await Notification.requestPermission();
-    setNotifStatus(perm);
+    setRemindersOn(perm === 'granted');
   }
 
   if (!unlocked) {
@@ -116,13 +139,15 @@ export function Deadline() {
           </div>
         )}
 
-        {notifStatus !== 'unsupported' && notifStatus !== 'granted' && (
+        {notifSupported && !remindersOn && (
           <Button variant="secondary" onClick={enableReminders}>
             Enable reminders
           </Button>
         )}
-        {notifStatus === 'granted' && (
-          <p className="text-xs text-slate-400">Reminders on (while the app is open).</p>
+        {remindersOn && (
+          <p className="text-xs text-slate-400">
+            Reminders on{!isNative() && ' (while the app is open)'}.
+          </p>
         )}
       </div>
     </PageShell>

@@ -15,7 +15,10 @@ export function PageShell({
   const navigate = useNavigate();
   return (
     <div className="min-h-dvh flex flex-col">
-      <header className="flex items-center gap-3 px-4 py-3 bg-brand-600 text-white sticky top-0 z-10 shadow-sm">
+      <header
+        className="flex items-center gap-3 px-4 py-3 bg-brand-600 text-white sticky top-0 z-10 shadow-sm"
+        style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
+      >
         {onBack && (
           <button
             onClick={() => navigate(-1)}

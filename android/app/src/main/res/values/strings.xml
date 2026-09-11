@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DepositGuard</string>
+    <string name="title_activity_main">DepositGuard</string>
+    <string name="package_name">com.depositguard.app</string>
+    <string name="custom_url_scheme">com.depositguard.app</string>
+</resources>

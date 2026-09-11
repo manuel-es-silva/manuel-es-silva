@@ -49,7 +49,12 @@ export interface Photo {
   phase: Phase;
   /** Key of the checklist item this photo answers, or 'extra' for user-added shots. */
   checklistKey: string;
-  blob: Blob;
+  /** Web: the image data itself, stored inline in IndexedDB. */
+  blob?: Blob;
+  /** Native: path into device app storage (see lib/photoStorage.ts) — the
+   * image data lives in the filesystem, not in this record. Exactly one of
+   * blob/filePath is set, decided at capture time by the current platform. */
+  filePath?: string;
   note?: string;
   isDamage: boolean;
   capturedAt: string; // ISO datetime

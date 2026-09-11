@@ -16,6 +16,8 @@ body {
   background-color: var(--color-brand-50);
   color: #1e293b;
   overscroll-behavior-y: none;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Big, easy tap targets everywhere by default. */

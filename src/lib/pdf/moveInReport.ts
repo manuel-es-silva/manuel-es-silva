@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import { APP_NAME, DISCLAIMER_TEXT } from '../../config/app';
 import { shortHash } from '../hash';
+import { getPhotoBlob } from '../photoStorage';
 import type { Photo, Property, Room } from '../../types';
 import {
   BRAND_COLOR,
@@ -90,7 +91,7 @@ export async function generateMoveInReport(
       }
       const x = MARGIN + col * (PHOTO_W + 20);
 
-      const img = await embedImage(pdfDoc, photo.blob);
+      const img = await embedImage(pdfDoc, await getPhotoBlob(photo));
       const scale = Math.min(PHOTO_W / img.width, PHOTO_H / img.height);
       const w = img.width * scale;
       const h = img.height * scale;

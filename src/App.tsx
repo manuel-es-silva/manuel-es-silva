@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Onboarding } from './pages/Onboarding';
 import { RoomSetup } from './pages/RoomSetup';
@@ -10,9 +11,13 @@ import { Split } from './pages/Split';
 import { Settings } from './pages/Settings';
 import { Landing } from './pages/Landing';
 import { useUnlockRedirect } from './lib/useUnlockRedirect';
+import { initNativePurchases } from './lib/nativePurchase';
 
 function AppRoutes() {
   useUnlockRedirect();
+  useEffect(() => {
+    initNativePurchases();
+  }, []);
   return (
     <Routes>
       <Route path="/" element={<Onboarding />} />

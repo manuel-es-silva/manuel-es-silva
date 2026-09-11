@@ -1,12 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { PageShell } from '../components/PageShell';
 import { Button } from '../components/Button';
 import { db } from '../db/db';
 import { addPhoto, checklistForRoom, deletePhoto, photosForRoom, updatePhoto } from '../db/queries';
 import { getActivePropertyId } from '../lib/activeProperty';
+import { isNative } from '../lib/platform';
 import { parsePhase } from '../lib/phase';
+import { usePhotoUrl } from '../lib/photoStorage';
 import type { Photo } from '../types';
 
 function groupByKey(photos: Photo[]): Map<string, Photo[]> {
@@ -46,7 +50,35 @@ export function RoomChecklist() {
     return null;
   }
 
-  function triggerCapture(key: string) {
+  async function saveCapturedPhoto(key: string, blob: Blob) {
+    const pairedMoveInPhotoId =
+      phase === 'move-out' ? referenceByKey.get(key)?.[0]?.id : undefined;
+    const photo = await addPhoto({
+      propertyId: propertyId!,
+      roomId: roomId!,
+      phase,
+      checklistKey: key,
+      blob,
+      isDamage: false,
+      pairedMoveInPhotoId,
+    });
+    Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
+    setEditingPhoto(photo);
+  }
+
+  async function triggerCapture(key: string) {
+    if (isNative()) {
+      const result = await Camera.getPhoto({
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera,
+        quality: 80,
+        saveToGallery: false,
+      }).catch(() => null);
+      if (!result?.webPath) return;
+      const blob = await (await fetch(result.webPath)).blob();
+      await saveCapturedPhoto(key, blob);
+      return;
+    }
     pendingKeyRef.current = key;
     fileInputRef.current?.click();
   }
@@ -57,18 +89,7 @@ export function RoomChecklist() {
     const key = pendingKeyRef.current;
     pendingKeyRef.current = null;
     if (!file || !key) return;
-    const pairedMoveInPhotoId =
-      phase === 'move-out' ? referenceByKey.get(key)?.[0]?.id : undefined;
-    const photo = await addPhoto({
-      propertyId: propertyId!,
-      roomId: roomId!,
-      phase,
-      checklistKey: key,
-      blob: file,
-      isDamage: false,
-      pairedMoveInPhotoId,
-    });
-    setEditingPhoto(photo);
+    await saveCapturedPhoto(key, file);
   }
 
   const doneCount = items.filter((i) => (photosByKey.get(i.key)?.length ?? 0) > 0).length;
@@ -155,15 +176,15 @@ export function RoomChecklist() {
 }
 
 function Thumb({ photo, onTap }: { photo: Photo; onTap: () => void }) {
-  const url = useMemo(() => URL.createObjectURL(photo.blob), [photo.blob]);
+  const url = usePhotoUrl(photo);
   return (
     <button
       onClick={onTap}
-      className={`relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 ${
+      className={`relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 bg-slate-100 ${
         photo.isDamage ? 'border-red-500' : 'border-transparent'
       }`}
     >
-      <img src={url} alt="" className="w-full h-full object-cover" />
+      {url && <img src={url} alt="" className="w-full h-full object-cover" />}
       {photo.isDamage && (
         <span className="absolute bottom-0 left-0 right-0 bg-red-600/80 text-white text-[9px] text-center py-0.5">
           DAMAGE
@@ -174,10 +195,10 @@ function Thumb({ photo, onTap }: { photo: Photo; onTap: () => void }) {
 }
 
 function ReferenceThumb({ photo }: { photo: Photo }) {
-  const url = useMemo(() => URL.createObjectURL(photo.blob), [photo.blob]);
+  const url = usePhotoUrl(photo);
   return (
-    <div className="shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-70 ring-1 ring-slate-300">
-      <img src={url} alt="" className="w-full h-full object-cover" />
+    <div className="shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-70 ring-1 ring-slate-300 bg-slate-100">
+      {url && <img src={url} alt="" className="w-full h-full object-cover" />}
     </div>
   );
 }
@@ -191,7 +212,7 @@ function PhotoEditor({
   phase: 'move-in' | 'move-out';
   onClose: () => void;
 }) {
-  const url = useMemo(() => URL.createObjectURL(photo.blob), [photo.blob]);
+  const url = usePhotoUrl(photo);
   const [note, setNote] = useState(photo.note ?? '');
   const [isDamage, setIsDamage] = useState(photo.isDamage);
 
@@ -208,8 +229,13 @@ function PhotoEditor({
 
   return (
     <div className="fixed inset-0 bg-black/60 z-20 flex items-end sm:items-center sm:justify-center">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-4 max-h-[90vh] overflow-y-auto">
-        <img src={url} alt="" className="w-full rounded-lg mb-3 max-h-64 object-contain bg-slate-100" />
+      <div
+        className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-4 max-h-[90vh] overflow-y-auto"
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+      >
+        {url && (
+          <img src={url} alt="" className="w-full rounded-lg mb-3 max-h-64 object-contain bg-slate-100" />
+        )}
         <label className="flex items-center gap-2 mb-3">
           <input
             type="checkbox"

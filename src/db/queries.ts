@@ -1,6 +1,7 @@
 import { db, newId } from './db';
 import { checklistForRoomKind, DEFAULT_ROOM_KINDS } from './roomTemplates';
 import { sha256 } from '../lib/hash';
+import { deletePhotoFile, savePhotoFile } from '../lib/photoStorage';
 import type { Phase, Photo, Property, Roommate, Room, RoomComparison } from '../types';
 
 export async function createProperty(input: {
@@ -80,6 +81,7 @@ export async function renameRoom(roomId: string, name: string): Promise<void> {
 export async function removeRoom(roomId: string): Promise<void> {
   const photos = await db.photos.where('roomId').equals(roomId).toArray();
   await db.photos.bulkDelete(photos.map((p) => p.id));
+  await Promise.all(photos.map(deletePhotoFile));
   await db.rooms.delete(roomId);
 }
 
@@ -106,13 +108,15 @@ export async function addPhoto(input: {
   pairedMoveInPhotoId?: string;
 }): Promise<Photo> {
   const hash = await sha256(input.blob);
+  const id = newId();
+  const stored = await savePhotoFile(input.propertyId, id, input.blob);
   const photo: Photo = {
-    id: newId(),
+    id,
     propertyId: input.propertyId,
     roomId: input.roomId,
     phase: input.phase,
     checklistKey: input.checklistKey,
-    blob: input.blob,
+    ...stored,
     note: input.note,
     isDamage: input.isDamage,
     capturedAt: new Date().toISOString(),
@@ -131,7 +135,9 @@ export async function updatePhoto(
 }
 
 export async function deletePhoto(photoId: string): Promise<void> {
+  const photo = await db.photos.get(photoId);
   await db.photos.delete(photoId);
+  if (photo) await deletePhotoFile(photo);
 }
 
 export async function recordReportShared(propertyId: string, phase: Phase) {

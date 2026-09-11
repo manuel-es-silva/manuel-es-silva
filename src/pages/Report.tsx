@@ -16,6 +16,7 @@ import {
 import { getActivePropertyId } from '../lib/activeProperty';
 import { useEntitlement } from '../lib/entitlement';
 import { parsePhase } from '../lib/phase';
+import { isNative } from '../lib/platform';
 import { downloadBlob, sharePdf } from '../lib/share';
 import type { Photo, Room } from '../types';
 
@@ -114,9 +115,11 @@ export function Report() {
 
           <div className="flex gap-2">
             <Button onClick={handleShare}>Share / email to landlord</Button>
-            <Button variant="secondary" fullWidth={false} className="px-4" onClick={handleDownload}>
-              Download
-            </Button>
+            {!isNative() && (
+              <Button variant="secondary" fullWidth={false} className="px-4" onClick={handleDownload}>
+                Download
+              </Button>
+            )}
           </div>
 
           {share?.sharedAt && !share?.confirmedSentAt && (

@@ -14,14 +14,16 @@ generated PDF report yourself.
 
 ## Status
 
-Phases 1–4 (move-in MVP, move-out mode, deadline tracker + roommate split,
-monetization) are done. See [`PLAN.md`](./PLAN.md) for what's implemented,
-what's next, and notable decisions.
+Phases 1–5 are done on the code side (move-in MVP, move-out mode, deadline
+tracker + roommate split, monetization, iOS + Android via Capacitor). See
+[`PLAN.md`](./PLAN.md) for what's implemented, what's next, and notable
+decisions.
 
-Before a real launch, read the "Payment mechanism" note under Phase 4 in
-`PLAN.md` — the web unlock is trust-based (no backend to verify a Stripe
-payment server-side), which is a real gap to close or route around with
-Phase 5's platform in-app purchases.
+**Phase 5 was built and type-checked, but not run** — this was built in a
+Linux sandbox with no Xcode and no Android SDK access, so the native iOS/
+Android builds themselves need to happen on your machine. `PLAN.md` has a
+full walkthrough (signing, icons, TestFlight/Play Console, IAP setup) —
+read it before assuming anything native works untested.
 
 ## Run it locally
 
@@ -96,13 +98,34 @@ deadline tracker, and roommate split are behind a one-time unlock
 `src/config/waitlist.ts` — set your own form endpoint for `/landing`'s
 waitlist). `/settings` shows unlock status.
 
+## iOS + Android (Capacitor)
+
+```bash
+npm run cap:ios       # build, sync, open Xcode
+npm run cap:android   # build, sync, open Android Studio
+npm run cap:assets    # regenerate icons/splash from resources/
+```
+
+Needs a Mac + Xcode (+ Apple Developer account) for iOS, Android Studio
+(+ Play Console account) for Android — see the Phase 5 walkthrough in
+`PLAN.md` for the full setup, signing, and store-submission steps. On
+native, photos are stored via the Filesystem plugin instead of IndexedDB,
+capture uses the real native camera, sharing uses the native share sheet,
+deadline reminders are real scheduled OS notifications, and the unlock
+uses RevenueCat (StoreKit/Play Billing) instead of the web's Stripe link.
+
 ## Tech stack
 
 - Vite + React + TypeScript + Tailwind CSS v4
 - `vite-plugin-pwa` — installable, works offline
 - Dexie (IndexedDB) — local storage for properties, rooms, and photo blobs
+  on web (native uses device filesystem storage instead, see above)
 - pdf-lib — on-device PDF generation, no server involved
 - react-router-dom
+- Capacitor — iOS + Android wrapper (camera, filesystem, share, local
+  notifications, haptics)
+- RevenueCat — native in-app purchase (StoreKit/Play Billing) with
+  server-verified receipts
 
 No backend, no accounts, no analytics.
 

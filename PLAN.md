@@ -19,11 +19,15 @@ Tracks what's done, what's next, and decisions worth remembering. See
 - SHA-256 via native `crypto.subtle` — no hashing library needed.
 - Sharing via the Web Share API (`navigator.share`/`canShare` with files),
   falling back to a plain download link when unsupported (desktop).
-- Capacitor is deferred to Phase 5, targeting **both iOS and Android** from
-  the same codebase (the original brief scoped iOS only and put Android
-  out of scope; that was revised — Capacitor supports both without an
-  architecture change, so Phase 5 now covers both platforms' native
-  camera/filesystem/share/notifications and both stores' submission steps).
+- Capacitor wraps the same web codebase for **both iOS and Android**
+  (Phase 5) — the original brief scoped iOS only and put Android out of
+  scope; that was revised, since Capacitor supports both without an
+  architecture change.
+- RevenueCat (`@revenuecat/purchases-capacitor`) wraps StoreKit/Play
+  Billing for the native in-app purchase, chosen over a bare
+  cordova-purchase-style plugin because it also verifies receipts
+  server-side — closing the gap Phase 4 flagged with the web-only Stripe
+  Payment Link unlock (see Phase 5 below).
 
 ## Data model
 
@@ -36,9 +40,10 @@ Dexie tables, all local to the device:
 - `rooms` — propertyId, name, kind (drives which checklist template
   applies), sortOrder.
 - `photos` — propertyId, roomId, phase ('move-in' | 'move-out'),
-  checklistKey, blob, note?, isDamage, capturedAt, sha256,
-  pairedMoveInPhotoId? (set on move-out photos, wired up in Phase 2 for
-  before/after pairing).
+  checklistKey, blob? (web) / filePath? (native, Phase 5 — see
+  `src/lib/photoStorage.ts`; exactly one of the two is set), note?,
+  isDamage, capturedAt, sha256, pairedMoveInPhotoId? (set on move-out
+  photos, wired up in Phase 2 for before/after pairing).
 - `reportShares` — one row per (propertyId, phase): sharedAt,
   confirmedSentAt — backs the "did you send it to your landlord?"
   confirmation.
@@ -235,11 +240,157 @@ to miss). Fixed by giving `Button` a real `fullWidth` prop instead of
 relying on class-string precedence, and updated every call site
 (RoomChecklist, Onboarding, Report, RoomSetup, Split, Landing).
 
-## Phase 5 — iOS + Android — NOT STARTED
+## Phase 5 — iOS + Android — CODE DONE, NOT BUILDABLE HERE
 
-Capacitor wrapping both platforms from one codebase; StoreKit (iOS) and
-Google Play Billing (Android) behind the same entitlement check from
-Phase 4.
+This sandbox is Linux with no Xcode and no Android SDK (its network
+policy also blocks `dl.google.com`, so even downloading the Android SDK
+here isn't possible). Everything code-side is done and type-checks/builds
+for web; the native builds themselves need to happen on your machine —
+see the walkthrough below for exactly what to do and in what order.
+
+**What changed:**
+
+- `npx cap add ios android` scaffolded `ios/` and `android/` — both are
+  committed to the repo (they're real project source, not build output;
+  `.gitignore` excludes each platform's actual build artifacts —
+  `android/app/build`, `ios/App/Pods`, `xcuserdata`, etc.).
+- **Photo storage** (`src/lib/photoStorage.ts`): web keeps storing photo
+  Blobs directly in IndexedDB as before; native writes each photo to app
+  storage via `@capacitor/filesystem` (`Directory.Data`) and the Dexie
+  record keeps only a `filePath`. `Photo.blob` and `Photo.filePath` are
+  each optional — exactly one is set, decided at capture time by
+  `isNative()`. Every read goes through `getPhotoBlob()` (full bytes, for
+  the PDF generators) or the `usePhotoUrl()` hook (a displayable URL,
+  using `Capacitor.convertFileSrc()` on native so a thumbnail doesn't
+  require reading the whole file into JS memory).
+- **Camera**: `RoomChecklist`'s capture button calls `@capacitor/camera`'s
+  `Camera.getPhoto()` on native (opens the real native camera UI, not a
+  file picker) and falls back to the existing `<input capture>` on web.
+  `@capacitor/haptics` fires an impact on every successful capture.
+- **Share**: `src/lib/share.ts` writes the generated PDF to
+  `Directory.Cache` and hands it to `@capacitor/share` on native (the real
+  iOS/Android share sheet), instead of the Web Share API. The standalone
+  "Download" button on the report page is hidden on native — the native
+  share sheet already has a save-to-Files equivalent, so a second button
+  doing the same thing would be website-in-a-box clutter.
+- **Reminders**: `@capacitor/local-notifications` schedules three real,
+  OS-level notifications (3 days before, on the day, one day after) once
+  a move-out date and a verified state are both known — these fire even
+  if the app is closed, unlike the web version's best-effort check-on-open.
+- **Payments**: `@revenuecat/purchases-capacitor` wraps StoreKit and Play
+  Billing behind one API and — usefully — verifies receipts server-side
+  for you, which actually resolves the "trust-based, not verified" gap
+  Phase 4 flagged for the web Stripe Payment Link unlock. `Paywall` shows
+  a real purchase button + a "Restore purchases" button (required by App
+  Store review for non-consumables) on native, and keeps the Stripe link
+  + manual fallback on web. `src/config/iap.ts` has placeholder API keys
+  and product/entitlement identifiers to fill in from your own RevenueCat
+  dashboard.
+- **Icons/splash**: `resources/icon.png`, `icon-foreground.png` +
+  `icon-background.png` (Android adaptive icon layers), and `splash.png`
+  generated from the app's existing teal house-glyph mark, then
+  `npx capacitor-assets generate` populated every required size into both
+  native projects. Regenerate after changing the source images with
+  `npm run cap:assets`.
+- **Privacy strings & manifest**: `ios/App/App/Info.plist` gained
+  `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, and
+  `NSPhotoLibraryAddUsageDescription` (required or the app crashes the
+  instant it touches the camera, and App Store review rejects a submission
+  missing them). Added a minimal `PrivacyInfo.xcprivacy` declaring no
+  tracking and no data collection, which is simply true for a local-first
+  app — Capacitor's own core package already ships its own manifest for
+  its internal API usage, so this only covers the app itself.
+- **Safe areas**: iOS content now extends under the notch/status bar
+  (`contentInset: 'never'`, the Capacitor default) with the header/footer/
+  photo-editor sheet padding themselves via `env(safe-area-inset-*)`
+  instead, so the brand-teal header bleeds to the top like a native app
+  rather than leaving a plain gap above it. This is a reasonable pass, not
+  exhaustively verified — there's no physical notched device to test on
+  from here; check it for real once you're in Xcode/Android Studio.
+
+**What I could not verify:** any actual native build, launch, camera
+capture, share sheet, notification delivery, or purchase flow. Every
+piece above type-checks against its real plugin API and follows each
+plugin's documented usage, but "compiles against the types" and "works
+correctly in a running iOS/Android app" are different claims — treat the
+first TestFlight/internal-test build as the real first test of this
+phase, not a formality.
+
+### Walkthrough — iOS (needs a Mac, Xcode, and an Apple Developer account)
+
+1. **Pick real identifiers first.** Decide the real `appId` (reverse-DNS,
+   e.g. `com.yourcompany.depositguard`) and app name, and set them in
+   `capacitor.config.ts`, `src/config/app.ts` (`APP_NAME`), and
+   `index.html`'s `<title>`. Changing `appId` after a store listing exists
+   means a new listing, so get this right before the next steps.
+2. **Apple Developer Program**: enroll at developer.apple.com if you
+   haven't ($99/year). You need this before Xcode can create a real
+   signing certificate or before TestFlight exists.
+3. `npm run cap:ios` (builds the web app, syncs it into the native
+   project, opens Xcode). First time, Xcode may take a minute resolving
+   the Swift Package dependencies (Capacitor + the plugins).
+4. **Signing**: select the `App` target → *Signing & Capabilities* → pick
+   your Team → let Xcode manage the provisioning profile automatically
+   (simplest option for a first submission).
+5. **Icons/splash**: already populated by `capacitor-assets` (see above).
+   Open `Assets.xcassets` in Xcode to eyeball them; regenerate from
+   `resources/` if you change the source mark.
+6. **Permission strings**: already in `Info.plist` (see above) — reword
+   them if you want, but don't remove them.
+7. **Run on a real device** (simulator can't use the camera): plug in an
+   iPhone, select it as the run destination, hit Run. This is the actual
+   first real test of the camera/share/haptics/notification code — watch
+   for crashes on first camera use particularly.
+8. **RevenueCat + IAP**: create a free RevenueCat account, add your iOS
+   app, create one non-consumable product in App Store Connect (*Features
+   → In-App Purchases*) matching `UNLOCK_PRODUCT_ID` in
+   `src/config/iap.ts`, attach it to an entitlement in the RevenueCat
+   dashboard matching `UNLOCK_ENTITLEMENT_ID`, and paste your RevenueCat
+   iOS public SDK key into `REVENUECAT_API_KEY_IOS`. Test with a Sandbox
+   Apple ID before going further.
+9. **TestFlight**: Xcode → *Product → Archive* → *Distribute App* → App
+   Store Connect. Add yourself as an internal tester in App Store Connect
+   and confirm the build installs and runs from TestFlight itself, not
+   just from Xcode.
+10. **App Store listing**: in App Store Connect, fill in the listing —
+    screenshots (Xcode/simulator can generate these, or take them from
+    the device you tested on), description, keywords, support URL,
+    privacy policy URL (required — even a simple one stating "no data
+    leaves your device except what you choose to share" is enough given
+    what this app actually does), and the Privacy Nutrition Label
+    questionnaire (answer "no" to data collection throughout — this app
+    genuinely doesn't collect anything). Submit for review once a
+    TestFlight build has been manually tested end-to-end.
+
+### Walkthrough — Android (Android Studio + a Google Play Console account)
+
+1. Install Android Studio (bundles the Android SDK, which is the thing
+   this sandbox can't reach). Same real-identifiers step as iOS #1 if you
+   haven't already.
+2. `npm run cap:android` (builds, syncs, opens Android Studio). Let
+   Gradle sync finish — first sync downloads the Android Gradle Plugin
+   and dependencies, so it needs real internet access.
+3. **Signing**: *Build → Generate Signed App Bundle/APK* → create a new
+   keystore (back this up somewhere safe — losing it means you can never
+   update the app under the same listing again) → build a release AAB.
+4. **Icons/splash**: already populated (adaptive icon foreground/background
+   + splash drawables per density, see above).
+5. **Run on a device or emulator** — an emulator can fake a camera feed,
+   but test on a real device before shipping; same first-real-test caveat
+   as iOS.
+6. **Google Play Console account** ($25 one-time): console.play.google.com.
+7. **RevenueCat + IAP**: same RevenueCat account as iOS, add your Android
+   app, create a managed product in Play Console matching
+   `UNLOCK_PRODUCT_ID`, attach it to the same entitlement, paste your
+   RevenueCat Android public SDK key into `REVENUECAT_API_KEY_ANDROID`.
+8. **Internal testing track**: upload the AAB to Play Console's internal
+   testing track first, install it via the opt-in link, confirm it works,
+   before touching production.
+9. **Play Store listing**: store listing (screenshots, description,
+   feature graphic), content rating questionnaire, target audience, Data
+   Safety section (same honest "collects nothing" answers as iOS's
+   privacy label), and a privacy policy URL. Submit to production (or a
+   staged rollout) once the internal test build is confirmed working.
 
 ## Ideas parked for later (explicitly out of scope for now)
 
