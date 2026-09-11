@@ -229,7 +229,7 @@ function PhotoEditor({
           onChange={(e) => setNote(e.target.value)}
         />
         <div className="flex gap-2">
-          <Button variant="danger" className="w-auto px-4" onClick={remove}>
+          <Button variant="danger" fullWidth={false} className="px-4" onClick={remove}>
             Delete
           </Button>
           <Button onClick={save}>Save</Button>

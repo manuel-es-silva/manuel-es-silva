@@ -125,7 +125,7 @@ export function RoomSetup() {
           onChange={(e) => setNewRoomName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()}
         />
-        <Button variant="secondary" className="w-auto px-4" onClick={handleAddRoom}>
+        <Button variant="secondary" fullWidth={false} className="px-4" onClick={handleAddRoom}>
           Add
         </Button>
       </div>

@@ -11,12 +11,13 @@ const styles: Record<Variant, string> = {
 
 export function Button({
   variant = 'primary',
+  fullWidth = true,
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; fullWidth?: boolean }) {
   return (
     <button
-      className={`w-full py-3.5 rounded-xl font-medium text-base transition-colors ${styles[variant]} ${className}`}
+      className={`${fullWidth ? 'w-full' : ''} py-3.5 rounded-xl font-medium text-base transition-colors ${styles[variant]} ${className}`}
       {...props}
     />
   );

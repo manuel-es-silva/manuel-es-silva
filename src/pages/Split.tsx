@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { PageShell } from '../components/PageShell';
 import { Button } from '../components/Button';
+import { Paywall } from '../components/Paywall';
 import { db, newId } from '../db/db';
 import { setRoommates, updateProperty } from '../db/queries';
 import { getActivePropertyId } from '../lib/activeProperty';
+import { useEntitlement } from '../lib/entitlement';
 import type { Roommate } from '../types';
 
 const SELF_ID = 'self';
@@ -14,6 +16,7 @@ export function Split() {
   const navigate = useNavigate();
   const propertyId = getActivePropertyId();
   const property = useLiveQuery(() => (propertyId ? db.properties.get(propertyId) : undefined), [propertyId]);
+  const unlocked = useEntitlement();
 
   const [nameInput, setNameInput] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
@@ -35,6 +38,14 @@ export function Split() {
   if (!propertyId) {
     navigate('/');
     return null;
+  }
+
+  if (!unlocked) {
+    return (
+      <PageShell title="Split deposit" onBack>
+        <Paywall />
+      </PageShell>
+    );
   }
 
   const roommates = property?.roommates ?? [];
@@ -150,7 +161,7 @@ export function Split() {
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addRoommate()}
           />
-          <Button variant="secondary" className="w-auto px-4" onClick={addRoommate}>
+          <Button variant="secondary" fullWidth={false} className="px-4" onClick={addRoommate}>
             Add
           </Button>
         </div>

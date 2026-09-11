@@ -101,6 +101,9 @@ export function Progress() {
         <button className="text-brand-700 text-left" onClick={() => navigate('/split')}>
           Split with roommates
         </button>
+        <button className="text-brand-700 text-left" onClick={() => navigate('/settings')}>
+          Settings
+        </button>
         {phase === 'move-in' && !property?.moveOutDate && (
           <button className="text-slate-500 text-left" onClick={() => navigate('/move-out/start')}>
             Start move-out

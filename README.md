@@ -14,9 +14,14 @@ generated PDF report yourself.
 
 ## Status
 
-Phase 1 (move-in MVP), Phase 2 (move-out mode), and Phase 3 (deadline
-tracker + roommate split) are done. See [`PLAN.md`](./PLAN.md) for what's
-implemented, what's next, and notable decisions.
+Phases 1–4 (move-in MVP, move-out mode, deadline tracker + roommate split,
+monetization) are done. See [`PLAN.md`](./PLAN.md) for what's implemented,
+what's next, and notable decisions.
+
+Before a real launch, read the "Payment mechanism" note under Phase 4 in
+`PLAN.md` — the web unlock is trust-based (no backend to verify a Stripe
+payment server-side), which is a real gap to close or route around with
+Phase 5's platform in-app purchases.
 
 ## Run it locally
 
@@ -82,6 +87,14 @@ mode for that property — the same rooms, in the same checklist order.
   (`src/data/stateRules.ts`); everything else says so rather than guessing.
 - **Split** (`/split`) — total deposit, amount returned, and each
   roommate's paid amount; computes everyone's proportional refund/deduction.
+
+## Monetization
+
+Move-in photo capture is free. Reports, the before/after comparison, the
+deadline tracker, and roommate split are behind a one-time unlock
+(`src/config/payments.ts` — set your own Stripe Payment Link and price;
+`src/config/waitlist.ts` — set your own form endpoint for `/landing`'s
+waitlist). `/settings` shows unlock status.
 
 ## Tech stack
 

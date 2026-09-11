@@ -137,7 +137,7 @@ export function Onboarding() {
               }}
               placeholder="Add a name"
             />
-            <Button variant="secondary" className="w-auto px-4" onClick={addRoommate}>
+            <Button variant="secondary" fullWidth={false} className="px-4" onClick={addRoommate}>
               Add
             </Button>
           </div>

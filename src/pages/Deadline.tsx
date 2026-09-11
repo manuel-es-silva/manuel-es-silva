@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { PageShell } from '../components/PageShell';
 import { Button } from '../components/Button';
+import { Paywall } from '../components/Paywall';
 import { db } from '../db/db';
 import { updateProperty } from '../db/queries';
 import { getActivePropertyId } from '../lib/activeProperty';
+import { useEntitlement } from '../lib/entitlement';
 import { getStateRule, STATE_RULES } from '../data/stateRules';
 import { maybeNotifyDeadline } from '../lib/reminders';
 
@@ -13,6 +15,7 @@ export function Deadline() {
   const navigate = useNavigate();
   const propertyId = getActivePropertyId();
   const property = useLiveQuery(() => (propertyId ? db.properties.get(propertyId) : undefined), [propertyId]);
+  const unlocked = useEntitlement();
   const [notifStatus, setNotifStatus] = useState<NotificationPermission | 'unsupported'>(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
   );
@@ -26,10 +29,10 @@ export function Deadline() {
   const daysLeft = deadlineDate ? daysBetween(new Date(), deadlineDate) : undefined;
 
   useEffect(() => {
-    if (propertyId && daysLeft !== undefined && property?.address) {
+    if (unlocked && propertyId && daysLeft !== undefined && property?.address) {
       maybeNotifyDeadline(propertyId, daysLeft, `the deposit deadline for ${property.address}`);
     }
-  }, [propertyId, daysLeft, property?.address]);
+  }, [unlocked, propertyId, daysLeft, property?.address]);
 
   if (!propertyId) {
     navigate('/');
@@ -44,6 +47,14 @@ export function Deadline() {
     if (typeof Notification === 'undefined') return;
     const perm = await Notification.requestPermission();
     setNotifStatus(perm);
+  }
+
+  if (!unlocked) {
+    return (
+      <PageShell title="Deposit deadline" onBack>
+        <Paywall />
+      </PageShell>
+    );
   }
 
   return (

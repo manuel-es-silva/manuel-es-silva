@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { PageShell } from '../components/PageShell';
 import { Button } from '../components/Button';
 import { Disclaimer } from '../components/Disclaimer';
+import { Paywall } from '../components/Paywall';
 import { db } from '../db/db';
 import {
   buildRoomComparisons,
@@ -13,6 +14,7 @@ import {
   recordReportShared,
 } from '../db/queries';
 import { getActivePropertyId } from '../lib/activeProperty';
+import { useEntitlement } from '../lib/entitlement';
 import { parsePhase } from '../lib/phase';
 import { downloadBlob, sharePdf } from '../lib/share';
 import type { Photo, Room } from '../types';
@@ -29,13 +31,14 @@ export function Report() {
     [propertyId],
   );
   const share = useLiveQuery(() => (propertyId ? getReportShare(propertyId, phase) : undefined), [propertyId, phase]);
+  const unlocked = useEntitlement();
 
   const [status, setStatus] = useState<'idle' | 'generating' | 'ready' | 'error'>('idle');
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!property || !rooms || !propertyId) return;
+    if (!property || !rooms || !propertyId || !unlocked) return;
     let cancelled = false;
     setStatus('generating');
     (async () => {
@@ -64,7 +67,7 @@ export function Report() {
     return () => {
       cancelled = true;
     };
-  }, [property, rooms, propertyId, phase]);
+  }, [property, rooms, propertyId, phase, unlocked]);
 
   if (!propertyId) {
     navigate('/');
@@ -97,7 +100,8 @@ export function Report() {
 
   return (
     <PageShell title={shareTitle} onBack>
-      {status === 'generating' && <p className="text-slate-600">Building your report…</p>}
+      {!unlocked && <Paywall />}
+      {unlocked && status === 'generating' && <p className="text-slate-600">Building your report…</p>}
       {status === 'error' && (
         <p className="text-red-600">Something went wrong generating the PDF. Try again.</p>
       )}
@@ -110,7 +114,7 @@ export function Report() {
 
           <div className="flex gap-2">
             <Button onClick={handleShare}>Share / email to landlord</Button>
-            <Button variant="secondary" className="w-auto px-4" onClick={handleDownload}>
+            <Button variant="secondary" fullWidth={false} className="px-4" onClick={handleDownload}>
               Download
             </Button>
           </div>
@@ -119,10 +123,10 @@ export function Report() {
             <div className="bg-white rounded-xl p-4 border border-brand-200">
               <p className="text-slate-800 mb-3">Did you send this report to your landlord?</p>
               <div className="flex gap-2">
-                <Button variant="secondary" className="w-auto px-4" onClick={() => handleConfirmSent(false)}>
+                <Button variant="secondary" fullWidth={false} className="px-4" onClick={() => handleConfirmSent(false)}>
                   Not yet
                 </Button>
-                <Button className="w-auto px-4" onClick={() => handleConfirmSent(true)}>
+                <Button fullWidth={false} className="px-4" onClick={() => handleConfirmSent(true)}>
                   Yes, sent it
                 </Button>
               </div>

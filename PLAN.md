@@ -179,17 +179,61 @@ UI should read as intuitive rather than explained — dynamic counts and
 button labels stayed, static "here's how this screen works" text mostly
 didn't.
 
-## Phase 4 — Monetization — NOT STARTED
+## Phase 4 — Monetization — DONE
 
-Decision (see conversation): **one-time unlock, not ads.** Two reasons:
-(1) the app's core pitch is that photos never leave the device — an ad SDK
-means third-party trackers, which undercuts that promise; (2) this is a
-twice-a-year app (move-in, move-out), not a daily-use app, so ad
-impressions per install would be too low to matter anyway, while a
-one-time purchase at the moment of highest motivation (about to email the
-landlord) converts well. Plan stays as originally scoped: Stripe Checkout
-on web, a single entitlement check gating PDF/comparison/deadline/split
-features, swapped for platform IAP in Phase 5.
+One-time unlock, not ads — reasoning unchanged from the earlier decision
+(photos-stay-on-device pitch vs. ad SDK trackers; twice-a-year usage makes
+ad impressions worthless anyway).
+
+- `src/lib/entitlement.ts`: `isUnlocked()`/`setUnlocked()` over localStorage
+  is the single choke point every gated page checks (`useEntitlement()` for
+  a reactive read). Phase 5's StoreKit/Play Billing purchase callbacks call
+  `setUnlocked(true)` and nothing else changes.
+- Gated: `/report/move-in`, `/report/move-out`, `/deadline`, `/split` — all
+  show `<Paywall/>` (feature list + price) instead of content when locked.
+  Move-in photo capture itself (onboarding → rooms → checklist → progress)
+  stays free, per the spec.
+- **Payment mechanism — a real limitation, not a corner cut.** No backend
+  exists in this app by design, so Stripe Checkout's normal flow (create a
+  session server-side, verify a webhook) doesn't fit without standing up
+  infrastructure this session can't provision or hold real API keys for.
+  Used a **Stripe Payment Link** instead (`src/config/payments.ts` —
+  placeholder URL, swap in your own from the Stripe Dashboard): zero
+  backend to host. The trade-off is real: unlocking is trust-based, not
+  server-verified. Two paths set the local entitlement flag: (1) Stripe's
+  configurable "after payment" redirect back to the app with `?unlocked=1`
+  (`src/lib/useUnlockRedirect.ts`, checked on every route), or (2) an
+  "Already paid? Unlock" manual fallback on the paywall itself, for when
+  the redirect isn't configured or payment happened in another tab. Someone
+  could unlock without paying by tapping that fallback — acceptable for a
+  $9.99 utility with no accounts to protect, not acceptable to leave as-is
+  for a real launch. **Before shipping for real**, either add real
+  server-side receipt verification, or lean on Phase 5's platform IAP
+  (StoreKit/Play Billing both verify purchases without a backend) as the
+  primary path and treat the web unlock as secondary.
+- `/settings`: entitlement status + unlock, plus the full disclaimer —
+  fills a gap from the original Phase 1 spec ("disclaimer... in settings")
+  that never got a dedicated screen until now.
+- `/landing`: value props + a waitlist form posting to a Formspree-style
+  endpoint (`src/config/waitlist.ts` — placeholder, needs a real form ID).
+  No backend needed for this either. It's a route in the same SPA rather
+  than a separate static site, for simplicity; if it's meant to live at
+  the actual public root before launch, that's a deploy-time decision
+  (rewrite `/` → this route, move the app to a subpath) rather than
+  something to solve in-app.
+
+**Found and fixed while testing this phase:** `Button`'s `fullWidth`
+override was broken since Phase 1 — every "compact" button (Add, Download,
+Join, etc.) was passing `className="w-auto px-4"` hoping it would beat the
+component's baked-in `w-full`, but in this Tailwind v4 build `.w-full`
+wins the cascade regardless of className order, so those buttons were
+silently rendering full-width and squeezing their sibling inputs down to
+~26px. Never visually obvious enough to notice by eye at a glance across
+several screens, but showed up clearly once measured (and once the
+waitlist email input on this phase's new Landing page made it impossible
+to miss). Fixed by giving `Button` a real `fullWidth` prop instead of
+relying on class-string precedence, and updated every call site
+(RoomChecklist, Onboarding, Report, RoomSetup, Split, Landing).
 
 ## Phase 5 — iOS + Android — NOT STARTED
 
