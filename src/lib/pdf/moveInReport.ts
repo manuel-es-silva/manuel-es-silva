@@ -2,50 +2,24 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 import { APP_NAME, DISCLAIMER_TEXT } from '../../config/app';
 import { shortHash } from '../hash';
 import type { Photo, Property, Room } from '../../types';
-
-const PAGE_WIDTH = 595.28; // A4 pt
-const PAGE_HEIGHT = 841.89;
-const MARGIN = 40;
+import {
+  BRAND_COLOR,
+  DAMAGE_COLOR,
+  MARGIN,
+  MUTED_COLOR,
+  PAGE_HEIGHT,
+  PAGE_WIDTH,
+  TEXT_COLOR,
+  embedImage,
+  finalizePdf,
+  formatDate,
+  labelKey,
+  wrapText,
+} from './shared';
 
 interface RoomWithPhotos {
   room: Room;
   photos: Photo[];
-}
-
-async function embedImage(pdfDoc: PDFDocument, blob: Blob) {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (blob.type === 'image/png') {
-    return pdfDoc.embedPng(bytes);
-  }
-  try {
-    return await pdfDoc.embedJpg(bytes);
-  } catch {
-    return pdfDoc.embedPng(bytes);
-  }
-}
-
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let line = '';
-  for (const word of words) {
-    const candidate = line ? `${line} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = candidate;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
 }
 
 export async function generateMoveInReport(
@@ -61,11 +35,11 @@ export async function generateMoveInReport(
   let y = PAGE_HEIGHT - MARGIN;
 
   const drawTitle = (text: string, size: number, f: PDFFont = bold) => {
-    page.drawText(text, { x: MARGIN, y, size, font: f, color: rgb(0.05, 0.4, 0.36) });
+    page.drawText(text, { x: MARGIN, y, size, font: f, color: BRAND_COLOR });
     y -= size + 10;
   };
   const drawLine = (text: string, size = 11, f: PDFFont = font) => {
-    page.drawText(text, { x: MARGIN, y, size, font: f, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText(text, { x: MARGIN, y, size, font: f, color: TEXT_COLOR });
     y -= size + 8;
   };
 
@@ -90,7 +64,7 @@ export async function generateMoveInReport(
   const disclaimerLines = wrapText(DISCLAIMER_TEXT, font, 9, PAGE_WIDTH - MARGIN * 2);
   for (const line of disclaimerLines) {
     if (y < MARGIN) break;
-    page.drawText(line, { x: MARGIN, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
+    page.drawText(line, { x: MARGIN, y, size: 9, font, color: MUTED_COLOR });
     y -= 12;
   }
 
@@ -104,7 +78,7 @@ export async function generateMoveInReport(
 
     page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     y = PAGE_HEIGHT - MARGIN;
-    page.drawText(room.name, { x: MARGIN, y, size: 18, font: bold, color: rgb(0.05, 0.4, 0.36) });
+    page.drawText(room.name, { x: MARGIN, y, size: 18, font: bold, color: BRAND_COLOR });
     y -= 28;
 
     let col = 0;
@@ -129,7 +103,7 @@ export async function generateMoveInReport(
           y: y - PHOTO_H - 2,
           width: PHOTO_W,
           height: PHOTO_H + 4,
-          borderColor: rgb(0.8, 0.15, 0.15),
+          borderColor: DAMAGE_COLOR,
           borderWidth: 2,
         });
       }
@@ -141,14 +115,14 @@ export async function generateMoveInReport(
         y: labelY,
         size: 9,
         font: bold,
-        color: rgb(0.1, 0.1, 0.1),
+        color: TEXT_COLOR,
       });
       page.drawText(formatDate(photo.capturedAt), {
         x,
         y: labelY - 12,
         size: 8,
         font,
-        color: rgb(0.4, 0.4, 0.4),
+        color: MUTED_COLOR,
       });
       if (photo.isDamage) {
         page.drawText('DAMAGE NOTED', {
@@ -156,7 +130,7 @@ export async function generateMoveInReport(
           y: labelY - 24,
           size: 8,
           font: bold,
-          color: rgb(0.8, 0.15, 0.15),
+          color: DAMAGE_COLOR,
         });
       }
       if (photo.note) {
@@ -178,12 +152,12 @@ export async function generateMoveInReport(
   // ---- Integrity / hash appendix ----
   page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   y = PAGE_HEIGHT - MARGIN;
-  page.drawText('Photo Integrity Record', { x: MARGIN, y, size: 16, font: bold, color: rgb(0.05, 0.4, 0.36) });
+  page.drawText('Photo Integrity Record', { x: MARGIN, y, size: 16, font: bold, color: BRAND_COLOR });
   y -= 20;
   page.drawText(
     'Each photo below is listed with the SHA-256 hash of its image file, computed at capture time. ' +
       'If a photo file is later modified, its hash will no longer match this record.',
-    { x: MARGIN, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) },
+    { x: MARGIN, y, size: 9, font, color: MUTED_COLOR },
   );
   y -= 24;
 
@@ -199,8 +173,7 @@ export async function generateMoveInReport(
     }
   }
 
-  const bytes = await pdfDoc.save();
-  return new Blob([bytes as BlobPart], { type: 'application/pdf' });
+  return finalizePdf(pdfDoc);
 }
 
 function drawPageImage(
@@ -212,11 +185,4 @@ function drawPageImage(
   height: number,
 ) {
   page.drawImage(img, { x, y, width, height });
-}
-
-function labelKey(key: string): string {
-  return key
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
 }

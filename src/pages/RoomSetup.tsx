@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { db } from '../db/db';
 import { addRoom, checklistForRoom, photosForRoom, removeRoom, renameRoom } from '../db/queries';
 import { getActivePropertyId } from '../lib/activeProperty';
+import { currentPhase } from '../lib/phase';
 
 export function RoomSetup() {
   const navigate = useNavigate();
@@ -13,6 +14,9 @@ export function RoomSetup() {
   const [newRoomName, setNewRoomName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+
+  const property = useLiveQuery(() => (propertyId ? db.properties.get(propertyId) : undefined), [propertyId]);
+  const phase = property ? currentPhase(property) : 'move-in';
 
   const rooms = useLiveQuery(
     () => (propertyId ? db.rooms.where('propertyId').equals(propertyId).sortBy('sortOrder') : []),
@@ -24,13 +28,13 @@ export function RoomSetup() {
     const entries = await Promise.all(
       rooms.map(async (room) => {
         const total = checklistForRoom(room).length;
-        const photos = await photosForRoom(room.id, 'move-in');
+        const photos = await photosForRoom(room.id, phase);
         const done = new Set(photos.map((p) => p.checklistKey)).size;
         return [room.id, { done: Math.min(done, total), total }] as const;
       }),
     );
     return Object.fromEntries(entries);
-  }, [rooms]);
+  }, [rooms, phase]);
 
   if (!propertyId) {
     navigate('/');
@@ -60,7 +64,7 @@ export function RoomSetup() {
     <PageShell
       title="Rooms"
       footer={
-        <Button onClick={() => navigate('/progress')}>Continue to walkthrough</Button>
+        <Button onClick={() => navigate(`/progress/${phase}`)}>Continue to walkthrough</Button>
       }
     >
       <p className="text-slate-600 text-sm mb-4">
@@ -85,7 +89,7 @@ export function RoomSetup() {
               ) : (
                 <button
                   className="flex-1 text-left"
-                  onClick={() => navigate(`/checklist/${room.id}`)}
+                  onClick={() => navigate(`/checklist/${phase}/${room.id}`)}
                 >
                   <div className="font-medium text-slate-800">{room.name}</div>
                   {progress && (

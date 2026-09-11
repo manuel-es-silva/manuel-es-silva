@@ -1,16 +1,23 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { PageShell } from '../components/PageShell';
 import { Button } from '../components/Button';
 import { Disclaimer } from '../components/Disclaimer';
+import { db, newId } from '../db/db';
 import { createProperty } from '../db/queries';
 import { getActivePropertyId, setActivePropertyId } from '../lib/activeProperty';
-import { newId } from '../db/db';
+import { currentPhase } from '../lib/phase';
 import type { Roommate } from '../types';
 import { APP_NAME } from '../config/app';
 
 export function Onboarding() {
   const navigate = useNavigate();
+  const existingPropertyId = getActivePropertyId();
+  const existingProperty = useLiveQuery(
+    () => (existingPropertyId ? db.properties.get(existingPropertyId) : undefined),
+    [existingPropertyId],
+  );
   const [address, setAddress] = useState('');
   const [moveInDate, setMoveInDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [landlordName, setLandlordName] = useState('');
@@ -20,7 +27,7 @@ export function Onboarding() {
   const [saving, setSaving] = useState(false);
 
   const canSubmit = address.trim().length > 0 && moveInDate.length > 0;
-  const hasExisting = getActivePropertyId() !== null;
+  const hasExisting = existingPropertyId !== null;
 
   function addRoommate() {
     const name = roommateInput.trim();
@@ -58,10 +65,10 @@ export function Onboarding() {
           Everything stays on this device.
         </p>
 
-        {hasExisting && (
+        {hasExisting && existingProperty && (
           <button
             className="text-sm text-brand-700 font-medium underline"
-            onClick={() => navigate('/progress')}
+            onClick={() => navigate(`/progress/${currentPhase(existingProperty)}`)}
           >
             Continue my existing walkthrough instead
           </button>

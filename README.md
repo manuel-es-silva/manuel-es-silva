@@ -14,8 +14,9 @@ generated PDF report yourself.
 
 ## Status
 
-Phase 1 (move-in MVP) is done. See [`PLAN.md`](./PLAN.md) for what's
-implemented, what's next, and notable decisions.
+Phase 1 (move-in MVP) and Phase 2 (move-out mode) are done. See
+[`PLAN.md`](./PLAN.md) for what's implemented, what's next, and notable
+decisions.
 
 ## Run it locally
 
@@ -51,13 +52,27 @@ npm run lint      # oxlint
    anything that doesn't apply, or add extra photos beyond the checklist.
 4. **Progress** (`/progress`) — rooms completed vs. remaining, jump back into
    any room.
-5. **Report** (`/report`) — generates a PDF (cover page, room-by-room photos
-   with notes/timestamps, damage items highlighted, a SHA-256 hash listing
-   for every photo, and a plain-language disclaimer), then share it via the
-   Web Share API (mobile: opens your phone's share sheet so you can email it
-   straight from your own mail app) or download it (desktop fallback). After
-   sharing, the app asks whether you actually sent it to your landlord and
-   records that confirmation date.
+5. **Report** (`/report/move-in`) — generates a PDF (cover page, room-by-room
+   photos with notes/timestamps, damage items highlighted, a SHA-256 hash
+   listing for every photo, and a plain-language disclaimer), then share it
+   via the Web Share API (mobile: opens your phone's share sheet so you can
+   email it straight from your own mail app) or download it (desktop
+   fallback). After sharing, the app asks whether you actually sent it to
+   your landlord and records that confirmation date.
+
+## Move-out flow
+
+From the move-in progress page, "Moving out? Start move-out documentation"
+(`/move-out/start`) sets a move-out date and switches the app into move-out
+mode for that property — the same rooms, in the same checklist order.
+
+- **Checklist** (`/checklist/move-out/:roomId`) shows the matching move-in
+  photo as a dimmed reference thumbnail above each item so you can match the
+  angle, then captures the same way as move-in.
+- **Report** (`/report/move-out`) generates a before/after comparison PDF —
+  each checklist item side by side (move-in left, move-out right) with both
+  timestamps and notes, a section for items only photographed on one side,
+  and a combined hash appendix.
 
 ## Tech stack
 

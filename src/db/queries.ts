@@ -1,7 +1,7 @@
 import { db, newId } from './db';
 import { checklistForRoomKind, DEFAULT_ROOM_KINDS } from './roomTemplates';
 import { sha256 } from '../lib/hash';
-import type { Phase, Photo, Property, Roommate, Room } from '../types';
+import type { Phase, Photo, Property, Roommate, Room, RoomComparison } from '../types';
 
 export async function createProperty(input: {
   address: string;
@@ -144,4 +144,58 @@ export async function confirmReportSent(propertyId: string, phase: Phase) {
 
 export async function getReportShare(propertyId: string, phase: Phase) {
   return db.reportShares.where({ propertyId, phase }).first();
+}
+
+function latestPhotoByKey(photos: Photo[]): Map<string, Photo> {
+  const map = new Map<string, Photo>();
+  for (const photo of photos) {
+    const existing = map.get(photo.checklistKey);
+    if (!existing || photo.capturedAt > existing.capturedAt) {
+      map.set(photo.checklistKey, photo);
+    }
+  }
+  return map;
+}
+
+/**
+ * Builds move-in/move-out photo pairs per room for the comparison report.
+ * When an item was retaken, only the most recent photo per side is paired —
+ * every capture still appears in the report's hash appendix via the raw
+ * photo tables, this just picks one representative per side for the visual
+ * side-by-side.
+ */
+export async function buildRoomComparisons(propertyId: string): Promise<RoomComparison[]> {
+  const rooms = await listRooms(propertyId);
+  return Promise.all(
+    rooms.map(async (room) => {
+      const items = checklistForRoom(room);
+      const [moveInPhotos, moveOutPhotos] = await Promise.all([
+        photosForRoom(room.id, 'move-in'),
+        photosForRoom(room.id, 'move-out'),
+      ]);
+      const moveInByKey = latestPhotoByKey(moveInPhotos);
+      const moveOutByKey = latestPhotoByKey(moveOutPhotos);
+
+      const orderedKeys = [
+        ...items.map((i) => i.key),
+        ...[...moveInByKey.keys(), ...moveOutByKey.keys()].filter(
+          (key) => !items.some((i) => i.key === key),
+        ),
+      ];
+      const seen = new Set<string>();
+      const pairs = orderedKeys
+        .filter((key) => {
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return moveInByKey.has(key) || moveOutByKey.has(key);
+        })
+        .map((key) => ({
+          checklistKey: key,
+          moveIn: moveInByKey.get(key),
+          moveOut: moveOutByKey.get(key),
+        }));
+
+      return { room, pairs };
+    }),
+  );
 }

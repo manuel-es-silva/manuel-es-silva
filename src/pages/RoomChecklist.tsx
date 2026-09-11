@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { db } from '../db/db';
 import { addPhoto, checklistForRoom, deletePhoto, photosForRoom, updatePhoto } from '../db/queries';
 import { getActivePropertyId } from '../lib/activeProperty';
+import { parsePhase } from '../lib/phase';
 import type { Photo } from '../types';
 
 function groupByKey(photos: Photo[]): Map<string, Photo[]> {
@@ -19,14 +20,22 @@ function groupByKey(photos: Photo[]): Map<string, Photo[]> {
 }
 
 export function RoomChecklist() {
-  const { roomId } = useParams<{ roomId: string }>();
+  const { phase: phaseParam, roomId } = useParams<{ phase: string; roomId: string }>();
+  const phase = parsePhase(phaseParam);
   const navigate = useNavigate();
   const propertyId = getActivePropertyId();
 
   const room = useLiveQuery(() => (roomId ? db.rooms.get(roomId) : undefined), [roomId]);
-  const photos = useLiveQuery(() => (roomId ? photosForRoom(roomId, 'move-in') : []), [roomId]) ?? [];
+  const photos = useLiveQuery(() => (roomId ? photosForRoom(roomId, phase) : []), [roomId, phase]) ?? [];
   const photosByKey = useMemo(() => groupByKey(photos), [photos]);
   const items = useMemo(() => (room ? checklistForRoom(room) : []), [room]);
+
+  const referencePhotos =
+    useLiveQuery(
+      () => (phase === 'move-out' && roomId ? photosForRoom(roomId, 'move-in') : []),
+      [roomId, phase],
+    ) ?? [];
+  const referenceByKey = useMemo(() => groupByKey(referencePhotos), [referencePhotos]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingKeyRef = useRef<string | null>(null);
@@ -48,13 +57,16 @@ export function RoomChecklist() {
     const key = pendingKeyRef.current;
     pendingKeyRef.current = null;
     if (!file || !key) return;
+    const pairedMoveInPhotoId =
+      phase === 'move-out' ? referenceByKey.get(key)?.[0]?.id : undefined;
     const photo = await addPhoto({
       propertyId: propertyId!,
       roomId: roomId!,
-      phase: 'move-in',
+      phase,
       checklistKey: key,
       blob: file,
       isDamage: false,
+      pairedMoveInPhotoId,
     });
     setEditingPhoto(photo);
   }
@@ -65,7 +77,7 @@ export function RoomChecklist() {
     <PageShell
       title={room?.name ?? 'Room'}
       onBack
-      footer={<Button onClick={() => navigate('/progress')}>Done with this room</Button>}
+      footer={<Button onClick={() => navigate(`/progress/${phase}`)}>Done with this room</Button>}
     >
       <input
         ref={fileInputRef}
@@ -77,13 +89,16 @@ export function RoomChecklist() {
       />
 
       <p className="text-slate-600 text-sm mb-3">
-        {doneCount}/{items.length} shots captured. Tap an item to photograph it — skip anything
-        that doesn't apply.
+        {doneCount}/{items.length} shots captured.{' '}
+        {phase === 'move-out'
+          ? 'Match the angle of your move-in photo shown below each item.'
+          : "Tap an item to photograph it — skip anything that doesn't apply."}
       </p>
 
       <ul className="space-y-3">
         {items.map((item) => {
           const shots = photosByKey.get(item.key) ?? [];
+          const reference = phase === 'move-out' ? referenceByKey.get(item.key)?.[0] : undefined;
           return (
             <li key={item.key} className="bg-white rounded-xl p-3">
               <div className="flex items-center justify-between mb-2">
@@ -95,6 +110,22 @@ export function RoomChecklist() {
                   {shots.length > 0 ? '+ Retake' : 'Take photo'}
                 </button>
               </div>
+
+              {phase === 'move-out' && (
+                <div className="mb-2">
+                  {reference ? (
+                    <div className="flex items-center gap-2">
+                      <ReferenceThumb photo={reference} />
+                      <span className="text-xs text-slate-400">
+                        Move-in reference — match this angle
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400">No move-in photo to compare</span>
+                  )}
+                </div>
+              )}
+
               {shots.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto">
                   {shots.map((photo) => (
@@ -122,7 +153,7 @@ export function RoomChecklist() {
       )}
 
       {editingPhoto && (
-        <PhotoEditor photo={editingPhoto} onClose={() => setEditingPhoto(null)} />
+        <PhotoEditor photo={editingPhoto} phase={phase} onClose={() => setEditingPhoto(null)} />
       )}
     </PageShell>
   );
@@ -147,7 +178,24 @@ function Thumb({ photo, onTap }: { photo: Photo; onTap: () => void }) {
   );
 }
 
-function PhotoEditor({ photo, onClose }: { photo: Photo; onClose: () => void }) {
+function ReferenceThumb({ photo }: { photo: Photo }) {
+  const url = useMemo(() => URL.createObjectURL(photo.blob), [photo.blob]);
+  return (
+    <div className="shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-70 ring-1 ring-slate-300">
+      <img src={url} alt="" className="w-full h-full object-cover" />
+    </div>
+  );
+}
+
+function PhotoEditor({
+  photo,
+  phase,
+  onClose,
+}: {
+  photo: Photo;
+  phase: 'move-in' | 'move-out';
+  onClose: () => void;
+}) {
   const url = useMemo(() => URL.createObjectURL(photo.blob), [photo.blob]);
   const [note, setNote] = useState(photo.note ?? '');
   const [isDamage, setIsDamage] = useState(photo.isDamage);
@@ -174,7 +222,9 @@ function PhotoEditor({ photo, onClose }: { photo: Photo; onClose: () => void }) 
             onChange={(e) => setIsDamage(e.target.checked)}
             className="w-5 h-5"
           />
-          <span className="text-slate-800">Flag as existing damage</span>
+          <span className="text-slate-800">
+            {phase === 'move-out' ? 'Flag as damage' : 'Flag as existing damage'}
+          </span>
         </label>
         <textarea
           className="input mb-4"

@@ -4,6 +4,7 @@ import { RoomSetup } from './pages/RoomSetup';
 import { RoomChecklist } from './pages/RoomChecklist';
 import { Progress } from './pages/Progress';
 import { Report } from './pages/Report';
+import { MoveOutStart } from './pages/MoveOutStart';
 
 export function App() {
   return (
@@ -11,9 +12,10 @@ export function App() {
       <Routes>
         <Route path="/" element={<Onboarding />} />
         <Route path="/rooms" element={<RoomSetup />} />
-        <Route path="/checklist/:roomId" element={<RoomChecklist />} />
-        <Route path="/progress" element={<Progress />} />
-        <Route path="/report" element={<Report />} />
+        <Route path="/move-out/start" element={<MoveOutStart />} />
+        <Route path="/checklist/:phase/:roomId" element={<RoomChecklist />} />
+        <Route path="/progress/:phase" element={<Progress />} />
+        <Route path="/report/:phase" element={<Report />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

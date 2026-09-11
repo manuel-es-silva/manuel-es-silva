@@ -65,3 +65,14 @@ export interface ChecklistItemTemplate {
   key: string;
   label: string;
 }
+
+export interface ComparisonPair {
+  checklistKey: string;
+  moveIn?: Photo;
+  moveOut?: Photo;
+}
+
+export interface RoomComparison {
+  room: Room;
+  pairs: ComparisonPair[];
+}
