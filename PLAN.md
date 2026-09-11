@@ -30,7 +30,9 @@ Tracks what's done, what's next, and decisions worth remembering. See
 Dexie tables, all local to the device:
 
 - `properties` — address, moveInDate, moveOutDate?, landlordName,
-  landlordEmail, roommates[], createdAt.
+  landlordEmail, roommates[] (each with an optional `depositPaid` dollar
+  amount), state?, depositAmount?, depositReturnedAmount?,
+  depositReturnedDate?, createdAt.
 - `rooms` — propertyId, name, kind (drives which checklist template
   applies), sortOrder.
 - `photos` — propertyId, roomId, phase ('move-in' | 'move-out'),
@@ -132,13 +134,50 @@ cover page has 0 embedded images, the room comparison page has exactly 3
 was captured in the test), and the uncompared/hash appendix pages are
 text-only as designed.
 
-## Phase 3 — Deadline tracker + roommate split — NOT STARTED
+## Phase 3 — Deadline tracker + roommate split — DONE
 
-State deposit-return rules **will not be invented**. Plan is to ship a
-small, explicitly-sourced table (a handful of states, each with a link to
-the actual statute/government page and a `last_verified` date) and mark
-every other state "not yet verified," directing the user to check
-locally.
+- `src/data/stateRules.ts`: 5 states verified against real, current sources
+  (CA, NY, TX, FL, MA — official legislature/senate statute pages, checked
+  via web search this session, not memory), each with `deadlineDays`,
+  itemized-list requirement, source URL, `lastVerified`. All other states
+  + DC are listed with `verified: false` and null fields. `getStateRule()`
+  looks one up by code.
+- Onboarding gained an optional State field; `Property` gained `state`,
+  `depositAmount`, `depositReturnedAmount`, `depositReturnedDate`.
+- **Deadline page** (`/deadline`): shows the state's day count and source
+  link; once move-out has a date, shows a live countdown (green / amber
+  ≤3 days / red overdue) against `moveOutDate + deadlineDays`. Unverified
+  states show a one-line "not verified, check yourself" instead of a
+  number — never a guessed one.
+- **Reminders**: real local push notifications aren't reliably available
+  to a plain web app without a backend (no Periodic Background Sync
+  support to rely on). Implemented as best-effort instead: an "Enable
+  reminders" button requests Notification permission, and
+  `src/lib/reminders.ts` fires an in-browser Notification (deduped to
+  once/day via localStorage) when the app is opened within 3 days of, on,
+  or after the deadline. This only fires while the app is actually
+  opened — worth revisiting with Capacitor's real local-notification
+  plugin in Phase 5.
+- **Split page** (`/split`): `Roommate.depositShare` (a fraction) became
+  `depositPaid` (a dollar amount) — easier to type in. Total deposit +
+  amount returned by landlord, per-person paid amount (a "You" entry is
+  auto-added so the account holder is part of the split), each row shows
+  its share % and dollar refund/deduction, computed proportionally to
+  what was paid (falls back to an even split if nobody entered amounts).
+
+Verified: `tsc -b`, `npm run build`, `npm run lint` clean (two new
+same-category benign warnings on Split.tsx's mount-time migration effect,
+consistent with existing ones elsewhere). Playwright smoke test at
+390×844: state selection → deadline page pre- and post-move-out (countdown
+math checked against the actual move-out date used) → split page with two
+people and non-round amounts, percentages and dollar splits verified
+correct. Zero console/page errors.
+
+Also did a pass trimming instructional paragraphs across Phase 1/2 screens
+(onboarding, room setup, checklist, move-out start) per feedback that the
+UI should read as intuitive rather than explained — dynamic counts and
+button labels stayed, static "here's how this screen works" text mostly
+didn't.
 
 ## Phase 4 — Monetization — NOT STARTED
 

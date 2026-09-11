@@ -14,9 +14,9 @@ generated PDF report yourself.
 
 ## Status
 
-Phase 1 (move-in MVP) and Phase 2 (move-out mode) are done. See
-[`PLAN.md`](./PLAN.md) for what's implemented, what's next, and notable
-decisions.
+Phase 1 (move-in MVP), Phase 2 (move-out mode), and Phase 3 (deadline
+tracker + roommate split) are done. See [`PLAN.md`](./PLAN.md) for what's
+implemented, what's next, and notable decisions.
 
 ## Run it locally
 
@@ -73,6 +73,15 @@ mode for that property — the same rooms, in the same checklist order.
   each checklist item side by side (move-in left, move-out right) with both
   timestamps and notes, a section for items only photographed on one side,
   and a combined hash appendix.
+
+## Deadline tracker + roommate split
+
+- **Deadline** (`/deadline`) — pick a state to see its deposit-return
+  deadline and source statute; once move-out has a date, shows a live
+  countdown. Only a handful of states are verified against real sources
+  (`src/data/stateRules.ts`); everything else says so rather than guessing.
+- **Split** (`/split`) — total deposit, amount returned, and each
+  roommate's paid amount; computes everyone's proportional refund/deduction.
 
 ## Tech stack
 

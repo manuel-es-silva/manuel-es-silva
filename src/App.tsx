@@ -5,6 +5,8 @@ import { RoomChecklist } from './pages/RoomChecklist';
 import { Progress } from './pages/Progress';
 import { Report } from './pages/Report';
 import { MoveOutStart } from './pages/MoveOutStart';
+import { Deadline } from './pages/Deadline';
+import { Split } from './pages/Split';
 
 export function App() {
   return (
@@ -16,6 +18,8 @@ export function App() {
         <Route path="/checklist/:phase/:roomId" element={<RoomChecklist />} />
         <Route path="/progress/:phase" element={<Progress />} />
         <Route path="/report/:phase" element={<Report />} />
+        <Route path="/deadline" element={<Deadline />} />
+        <Route path="/split" element={<Split />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

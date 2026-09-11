@@ -89,10 +89,7 @@ export function RoomChecklist() {
       />
 
       <p className="text-slate-600 text-sm mb-3">
-        {doneCount}/{items.length} shots captured.{' '}
-        {phase === 'move-out'
-          ? 'Match the angle of your move-in photo shown below each item.'
-          : "Tap an item to photograph it — skip anything that doesn't apply."}
+        {doneCount}/{items.length} shots captured
       </p>
 
       <ul className="space-y-3">
@@ -116,12 +113,10 @@ export function RoomChecklist() {
                   {reference ? (
                     <div className="flex items-center gap-2">
                       <ReferenceThumb photo={reference} />
-                      <span className="text-xs text-slate-400">
-                        Move-in reference — match this angle
-                      </span>
+                      <span className="text-xs text-slate-400">Move-in reference</span>
                     </div>
                   ) : (
-                    <span className="text-xs text-slate-400">No move-in photo to compare</span>
+                    <span className="text-xs text-slate-400">No move-in photo</span>
                   )}
                 </div>
               )}

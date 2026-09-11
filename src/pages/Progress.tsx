@@ -54,17 +54,12 @@ export function Progress() {
       }
     >
       {phase === 'move-in' && property?.moveOutDate && (
-        <div className="bg-white rounded-xl p-3 mb-4 border border-brand-200">
-          <p className="text-sm text-slate-700">
-            Move-out started on {new Date(property.moveOutDate).toLocaleDateString()}.
-          </p>
-          <button
-            className="text-brand-700 text-sm font-medium mt-1"
-            onClick={() => navigate('/progress/move-out')}
-          >
-            Go to move-out walkthrough →
-          </button>
-        </div>
+        <button
+          className="w-full bg-white rounded-xl p-3 mb-4 border border-brand-200 text-left text-brand-700 text-sm font-medium"
+          onClick={() => navigate('/progress/move-out')}
+        >
+          Go to move-out walkthrough →
+        </button>
       )}
 
       <div className="mb-5">
@@ -96,21 +91,22 @@ export function Progress() {
         ))}
       </ul>
 
-      <button
-        className="mt-4 text-brand-700 text-sm font-medium block"
-        onClick={() => navigate('/rooms')}
-      >
-        Edit rooms
-      </button>
-
-      {phase === 'move-in' && !property?.moveOutDate && (
-        <button
-          className="mt-2 text-slate-500 text-sm font-medium block"
-          onClick={() => navigate('/move-out/start')}
-        >
-          Moving out? Start move-out documentation →
+      <div className="mt-4 flex flex-col gap-2 text-sm font-medium">
+        <button className="text-brand-700 text-left" onClick={() => navigate('/rooms')}>
+          Edit rooms
         </button>
-      )}
+        <button className="text-brand-700 text-left" onClick={() => navigate('/deadline')}>
+          Deposit deadline
+        </button>
+        <button className="text-brand-700 text-left" onClick={() => navigate('/split')}>
+          Split with roommates
+        </button>
+        {phase === 'move-in' && !property?.moveOutDate && (
+          <button className="text-slate-500 text-left" onClick={() => navigate('/move-out/start')}>
+            Start move-out
+          </button>
+        )}
+      </div>
     </PageShell>
   );
 }

@@ -41,12 +41,6 @@ export function MoveOutStart() {
       }
     >
       <div className="space-y-5">
-        <p className="text-slate-600 text-sm">
-          We'll walk you through the same rooms and checklist as move-in, so you can
-          re-photograph each spot for a before/after comparison. Your move-in photos and notes
-          stay exactly as they are.
-        </p>
-
         {property && (
           <div className="bg-white rounded-xl p-3 text-sm text-slate-700">
             <div className="font-medium">{property.address}</div>

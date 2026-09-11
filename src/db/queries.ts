@@ -9,6 +9,7 @@ export async function createProperty(input: {
   landlordName: string;
   landlordEmail: string;
   roommates: Roommate[];
+  state?: string;
 }): Promise<Property> {
   const property: Property = {
     id: newId(),
@@ -17,6 +18,7 @@ export async function createProperty(input: {
     landlordName: input.landlordName,
     landlordEmail: input.landlordEmail,
     roommates: input.roommates,
+    state: input.state,
     createdAt: new Date().toISOString(),
   };
   await db.properties.add(property);
@@ -39,6 +41,19 @@ export async function getProperty(id: string): Promise<Property | undefined> {
 
 export async function getMostRecentProperty(): Promise<Property | undefined> {
   return db.properties.orderBy('createdAt').last();
+}
+
+export async function updateProperty(
+  propertyId: string,
+  changes: Partial<
+    Pick<Property, 'state' | 'depositAmount' | 'depositReturnedAmount' | 'depositReturnedDate'>
+  >,
+): Promise<void> {
+  await db.properties.update(propertyId, changes);
+}
+
+export async function setRoommates(propertyId: string, roommates: Roommate[]): Promise<void> {
+  await db.properties.update(propertyId, { roommates });
 }
 
 export async function listRooms(propertyId: string): Promise<Room[]> {

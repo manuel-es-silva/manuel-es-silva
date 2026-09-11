@@ -1,8 +1,8 @@
 export interface Roommate {
   id: string;
   name: string;
-  /** Fraction 0-1 of the deposit this person paid. Used from Phase 3. */
-  depositShare?: number;
+  /** Dollar amount this person paid toward the deposit. */
+  depositPaid?: number;
 }
 
 export interface Property {
@@ -14,6 +14,11 @@ export interface Property {
   landlordEmail: string;
   roommates: Roommate[];
   createdAt: string; // ISO datetime
+  /** Two-letter USPS state code, for the deposit-return deadline lookup. */
+  state?: string;
+  depositAmount?: number;
+  depositReturnedAmount?: number;
+  depositReturnedDate?: string; // ISO date
 }
 
 export type RoomKind =
@@ -75,4 +80,15 @@ export interface ComparisonPair {
 export interface RoomComparison {
   room: Room;
   pairs: ComparisonPair[];
+}
+
+export interface StateRule {
+  stateCode: string;
+  stateName: string;
+  verified: boolean;
+  deadlineDays: number | null;
+  itemizedListRequired: boolean | null;
+  sourceUrl: string | null;
+  lastVerified: string | null; // ISO date
+  note?: string;
 }

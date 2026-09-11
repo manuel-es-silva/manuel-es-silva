@@ -8,6 +8,7 @@ import { db, newId } from '../db/db';
 import { createProperty } from '../db/queries';
 import { getActivePropertyId, setActivePropertyId } from '../lib/activeProperty';
 import { currentPhase } from '../lib/phase';
+import { STATE_RULES } from '../data/stateRules';
 import type { Roommate } from '../types';
 import { APP_NAME } from '../config/app';
 
@@ -22,6 +23,7 @@ export function Onboarding() {
   const [moveInDate, setMoveInDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [landlordName, setLandlordName] = useState('');
   const [landlordEmail, setLandlordEmail] = useState('');
+  const [state, setState] = useState('');
   const [roommates, setRoommates] = useState<Roommate[]>([]);
   const [roommateInput, setRoommateInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -45,6 +47,7 @@ export function Onboarding() {
       landlordName: landlordName.trim(),
       landlordEmail: landlordEmail.trim(),
       roommates,
+      state: state || undefined,
     });
     setActivePropertyId(property.id);
     navigate('/rooms');
@@ -60,11 +63,6 @@ export function Onboarding() {
       }
     >
       <div className="space-y-5">
-        <p className="text-slate-600 text-sm">
-          A few quick details, then we'll walk you through photographing every room.
-          Everything stays on this device.
-        </p>
-
         {hasExisting && existingProperty && (
           <button
             className="text-sm text-brand-700 font-medium underline"
@@ -111,6 +109,17 @@ export function Onboarding() {
             onChange={(e) => setLandlordEmail(e.target.value)}
             placeholder="landlord@example.com"
           />
+        </Field>
+
+        <Field label="State (optional)">
+          <select className="input" value={state} onChange={(e) => setState(e.target.value)}>
+            <option value="">Select…</option>
+            {STATE_RULES.map((s) => (
+              <option key={s.stateCode} value={s.stateCode}>
+                {s.stateName}
+              </option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Roommates (optional)">

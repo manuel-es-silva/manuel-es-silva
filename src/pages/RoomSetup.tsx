@@ -67,11 +67,6 @@ export function RoomSetup() {
         <Button onClick={() => navigate(`/progress/${phase}`)}>Continue to walkthrough</Button>
       }
     >
-      <p className="text-slate-600 text-sm mb-4">
-        Add, rename, or remove rooms so this matches your place, then tap a room to start
-        photographing it.
-      </p>
-
       <ul className="space-y-2 mb-4">
         {rooms?.map((room) => {
           const progress = roomProgress?.[room.id];
